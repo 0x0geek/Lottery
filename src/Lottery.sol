@@ -29,6 +29,7 @@ abstract contract Lottery is
         uint256 depositorId;
         uint256 wrappedTokenId;
         uint256 rewardAmount;
+        bool ownerClaimed;
     }
 
     uint256 internal constant DEPOSIT_PERIOD = 7 * 86400; // Duration of the deposit period in seconds
@@ -272,7 +273,9 @@ abstract contract Lottery is
             ticket.depositorId = depositors.length;
         } else {
             // check if user already has joined to the previous lottery and get reward, and
-            if (ticket.rewardAmount > 0) _claimReward(msg.sender);
+            if (ticket.rewardAmount > 0) _claimReward(msg.sender, false);
+
+            ticket.ownerClaimed = false;
 
             uint256 depositorIndex = ticket.depositorId - 1;
 
@@ -346,93 +349,8 @@ abstract contract Lottery is
         emit BorrowedTicket(msg.sender, ticket.tokenId, wrappedTokenId);
     }
 
-    function claimReward() external returns (uint256) {
-        return _claimReward(msg.sender);
-    }
-
-    /**
-     * @dev Allows a user to claim their reward for a winning ticket and/or for borrowing a ticket during the lottery deposit period.
-     *
-     * If the user has rented a ticket, the borrower's reward is subtracted from the owner's reward, and the borrower receives their reward amount in ETH. If the user has not rented a ticket, the owner receives their full reward amount in ETH.
-     *
-     * Requirements:
-     * - The function can only be called once per ticket.
-     * - The function can only be called during the claim period.
-     * - The user must have a valid NFT token linked to the wrapped token.
-     * - The user must have a reward amount greater than 0.
-     * @param _user The address of the user claiming the reward.
-     * @return The amount of ETH transferred as a reward.
-     */
-    function _claimReward(address _user) public nonReentrant returns (uint256) {
-        // check if winners are selected in the current lottery draw
-        if (winnersSelected == false) revert NotSelectedWinners();
-
-        // get user wrapped token id
-        uint256 borrowTokenId = wrappedToken.tokenIdOf(_user);
-
-        // get owner of nft token linked to the wrapped token
-        address owner = wrappedToken.originOwnerOf(borrowTokenId);
-
-        // get owner's ticket
-        Ticket storage ticket = tickets[owner];
-
-        // check if user has a borrow token
-        if (borrowTokenId > 0) {
-            // check if period is in break for getting reward
-            checkInBreakPeriod();
-
-            // check if user has reward
-            if (ticket.rewardAmount == 0) revert NotAvailableReward();
-
-            // calculate borrower's reward
-            uint256 borrowerReward = ticket
-                .rewardAmount
-                .mul(100 - rentTokenFee)
-                .div(100);
-
-            ticket.rewardAmount -= borrowerReward;
-
-            // burn the borrower's wrapped token
-            wrappedToken.burnToken(_user);
-
-            // transfer reward to borrower
-            payable(_user).transfer(borrowerReward);
-        }
-
-        // check if ticket is win or has reward
-        if (ticket.rewardAmount == 0) revert AlreadyClaimedReward();
-
-        uint256 rewardAmount;
-
-        // check if someone has borrown the ticket
-        if (ticket.wrappedTokenId > 0) {
-            // check if lottery is still in break period
-            if (isLotteryEnded()) {
-                // owner burn the borrower's wrapped token and get all the reward
-                rewardAmount = ticket.rewardAmount;
-                ticket.rewardAmount = 0;
-
-                wrappedToken.burnToken(
-                    wrappedToken.ownerOf(ticket.wrappedTokenId)
-                );
-            } else {
-                // owner get his reward except the borrower reward
-                rewardAmount = ticket.rewardAmount.mul(rentTokenFee).div(100);
-                ticket.rewardAmount -= rewardAmount;
-            }
-        } else {
-            // owner hasn't borrower and get his reward
-            rewardAmount = ticket.rewardAmount;
-            // clear reward amount
-            ticket.rewardAmount = 0;
-        }
-
-        // transfer reward to user
-        payable(_user).transfer(rewardAmount);
-
-        emit ClaimedReward(rewardAmount);
-
-        return rewardAmount;
+    function claimReward() external {
+        _claimReward(msg.sender, true);
     }
 
     /**
@@ -513,6 +431,116 @@ abstract contract Lottery is
         uint256 _numberOfWinners
     ) external onlyOwner onlyLotteryEnded {
         numberOfWinners = _numberOfWinners;
+    }
+
+    /**
+     * @dev Allows a user to claim their reward for a winning ticket and/or for borrowing a ticket during the lottery deposit period.
+     *
+     * If the user has rented a ticket, the borrower's reward is subtracted from the owner's reward, and the borrower receives their reward amount in ETH. If the user has not rented a ticket, the owner receives their full reward amount in ETH.
+     *
+     * Requirements:
+     * - The function can only be called once per ticket.
+     * - The function can only be called during the claim period.
+     * - The user must have a valid NFT token linked to the wrapped token.
+     * - The user must have a reward amount greater than 0.
+     * @param _user The address of the user claiming the reward.
+     * @param _needRevert The flag decide to revert, or not.
+     */
+    function _claimReward(
+        address _user,
+        bool _needRevert
+    ) internal nonReentrant {
+        // check if winners are selected in the current lottery draw
+        if (winnersSelected == false) {
+            if (_needRevert) revert NotSelectedWinners();
+            else return;
+        }
+
+        // get user wrapped token id
+        uint256 borrowTokenId = wrappedToken.tokenIdOf(_user);
+
+        // get owner of nft token linked to the wrapped token
+        address owner = wrappedToken.originOwnerOf(borrowTokenId);
+
+        // get owner's ticket
+        Ticket storage ticket = tickets[owner];
+
+        // check if user has a borrow token
+        if (borrowTokenId > 0) {
+            // check if period is in break for getting reward
+            checkInBreakPeriod();
+
+            // check if user has reward
+            if (ticket.rewardAmount == 0) {
+                if (_needRevert) revert NotAvailableReward();
+                else return;
+            }
+
+            // calculate borrower's reward
+            uint256 borrowerReward;
+
+            if (ticket.ownerClaimed) {
+                borrowerReward = ticket.rewardAmount;
+            } else {
+                borrowerReward = ticket
+                    .rewardAmount
+                    .mul(100 - rentTokenFee)
+                    .div(100);
+            }
+
+            ticket.rewardAmount -= borrowerReward;
+            ticket.wrappedTokenId = 0;
+
+            // burn the borrower's wrapped token
+            wrappedToken.burnToken(_user);
+
+            // transfer reward to borrower
+            payable(_user).transfer(borrowerReward);
+        }
+
+        // check if ticket is win or has reward
+        if (ticket.rewardAmount == 0) {
+            if (_needRevert) revert AlreadyClaimedReward();
+            else return;
+        }
+
+        uint256 rewardAmount;
+
+        // check if someone has borrown the ticket
+        if (ticket.wrappedTokenId > 0) {
+            // check if lottery is still in break period
+            if (isLotteryEnded()) {
+                // owner burn the borrower's wrapped token and get all the reward
+                rewardAmount = ticket.rewardAmount;
+
+                // update reward amount
+                ticket.rewardAmount = 0;
+
+                // wrapped token id should be 0, because burning borrower's wrapped token
+                ticket.wrappedTokenId = 0;
+
+                // burn borrower's wrapped token
+                wrappedToken.burnToken(
+                    wrappedToken.ownerOf(ticket.wrappedTokenId)
+                );
+            } else {
+                // owner get his reward except the borrower reward
+                rewardAmount = ticket.rewardAmount.mul(rentTokenFee).div(100);
+
+                // calculates reward amount by substracting owner's lending fee.
+                ticket.rewardAmount -= rewardAmount;
+            }
+        } else {
+            // owner hasn't borrower and get his reward
+            rewardAmount = ticket.rewardAmount;
+            // clear reward amount
+            ticket.rewardAmount = 0;
+        }
+
+        // transfer reward to user
+        payable(_user).transfer(rewardAmount);
+
+        emit ClaimedReward(rewardAmount);
     }
 
     /**
