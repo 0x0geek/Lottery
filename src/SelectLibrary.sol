@@ -55,7 +55,7 @@ library SelectLibrary {
         bytes32 rootHash,
         uint256 left,
         uint256 right
-    ) private returns (uint256) {
+    ) private view returns (uint256) {
         uint256 pivotIndex = randomInRange(rootHash, left, right);
         swap(arr, right, pivotIndex);
 
@@ -66,7 +66,7 @@ library SelectLibrary {
         Depositor[] memory arr,
         uint256 left,
         uint256 right
-    ) private returns (uint256) {
+    ) private pure returns (uint256) {
         uint256 pivot = arr[right].amount;
         uint256 i = left;
 
@@ -82,7 +82,7 @@ library SelectLibrary {
         return i;
     }
 
-    function swap(Depositor[] memory arr, uint256 i, uint256 j) private {
+    function swap(Depositor[] memory arr, uint256 i, uint256 j) private pure {
         Depositor memory temp = arr[i];
         arr[i] = arr[j];
         arr[j] = temp;
