@@ -52,15 +52,19 @@ abstract contract Lottery is
     uint256 internal accumulatedProtocolReward; // Protocol fee Reward
     bool internal winnersSelected;
 
-    event JoinedLottery(uint256 tokenId, address indexed buyer, uint256 amount);
-    event StartedLottery(uint256 timestamp);
+    event JoinedLottery(
+        uint256 indexed tokenId,
+        address indexed buyer,
+        uint256 indexed amount
+    );
+    event StartedLottery(uint256 indexed timestamp);
     event WinnerSelected(address[] winners);
     event BorrowedTicket(
         address indexed borrower,
-        uint256 tokenId,
-        uint256 wrappedTokenId
+        uint256 indexed tokenId,
+        uint256 indexed wrappedTokenId
     );
-    event ClaimedReward(uint256 amount);
+    event ClaimedReward(uint256 indexed amount);
 
     error NotWhitelistedUser();
     error LotteryNotEnded();
