@@ -548,12 +548,12 @@ abstract contract Lottery is
      * - `LotteryNotEnded` if the lottery has not ended yet.
      */
     function checkLotteryEnded() internal view virtual {
-        if (lotteryStartTime < lotteryStartTime + DEPOSIT_PERIOD + BREAK_PERIOD)
+        if (block.timestamp < lotteryStartTime + DEPOSIT_PERIOD + BREAK_PERIOD)
             revert LotteryNotEnded();
     }
 
     function isLotteryEnded() internal view returns (bool) {
-        if (lotteryStartTime < lotteryStartTime + DEPOSIT_PERIOD + BREAK_PERIOD)
+        if (block.timestamp < lotteryStartTime + DEPOSIT_PERIOD + BREAK_PERIOD)
             return false;
 
         return true;
