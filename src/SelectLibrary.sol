@@ -11,7 +11,7 @@ library SelectLibrary {
     }
 
     function quickselect(
-        Depositor[] storage arr,
+        Depositor[] memory arr,
         bytes32 rootHash,
         uint256 left,
         uint256 right,
@@ -51,7 +51,7 @@ library SelectLibrary {
     }
 
     function randomizedPartition(
-        Depositor[] storage arr,
+        Depositor[] memory arr,
         bytes32 rootHash,
         uint256 left,
         uint256 right
@@ -63,7 +63,7 @@ library SelectLibrary {
     }
 
     function partition(
-        Depositor[] storage arr,
+        Depositor[] memory arr,
         uint256 left,
         uint256 right
     ) private returns (uint256) {
@@ -82,7 +82,7 @@ library SelectLibrary {
         return i;
     }
 
-    function swap(Depositor[] storage arr, uint256 i, uint256 j) private {
+    function swap(Depositor[] memory arr, uint256 i, uint256 j) private {
         Depositor memory temp = arr[i];
         arr[i] = arr[j];
         arr[j] = temp;
