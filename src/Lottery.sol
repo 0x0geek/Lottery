@@ -184,12 +184,7 @@ abstract contract Lottery is
      * - There must be at least one depositor in the current lottery.
      * - The number of winners must be less than or equal to the number of depositors.
      */
-    function decideWinner()
-        external
-        onlyOwner
-        onlyDuringDepositPeriod
-        nonReentrant
-    {
+    function decideWinner() external onlyOwner onlyDuringDepositPeriod {
         // if already selected winner, should revert
         if (winnersSelected) revert AlreadyWinnerSelected();
 
