@@ -207,18 +207,24 @@ abstract contract Lottery is
             selectedWinners
         );
 
+        // calculates the reward amount for the winners by subtracting the protocol fee from the total deposit amount.
         uint256 rewardAmount = totalDepositAmount.mul(100 - protocolFee).div(
             100
         );
+
+        // calculates the reward amount per winner.
         uint256 rewardAmountPerUser = rewardAmount.div(numberOfWinners);
 
+        // updates the reward amount for each winner's ticket.
         for (uint256 i; i != numberOfWinners; ++i) {
             Ticket storage ticket = tickets[selectedWinners[i]];
             ticket.rewardAmount += rewardAmountPerUser;
         }
 
+        // calculates the accumulated protocol reward by subtracting the reward amount from the total deposit amount.
         accumulatedProtocolReward += totalDepositAmount.sub(rewardAmount);
 
+        // sets the winnersSelected flag to true to indicate that the winners have been selected.
         winnersSelected = true;
 
         emit WinnerSelected(selectedWinners);
