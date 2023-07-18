@@ -14,7 +14,7 @@ import "forge-std/console.sol";
 
 import "./LotteryToken.sol";
 import "./WrappedLotteryToken.sol";
-import "./SortLibrary.sol";
+import "./SelectLibrary.sol";
 
 abstract contract Lottery is
     Initializable,
