@@ -49,7 +49,6 @@ abstract contract Lottery is
     WrappedLotteryToken private wrappedToken; // Wrapped token for borrower
 
     uint256 internal totalDepositAmount; // Total deposit amount in the current lottery
-    uint256 internal numberOfDepositors; // Total Depositor number in the current lottery
     uint256 internal accumulatedProtocolReward; // Protocol fee Reward
     bool internal winnersSelected;
 
@@ -154,7 +153,7 @@ abstract contract Lottery is
         bytes32 _rootHash
     ) external onlyOwner onlyLotteryEnded {
         // check if rootHash is valid
-        if (rootHash == bytes32(0)) revert NotValidRootHash();
+        if (_rootHash == bytes32(0)) revert NotValidRootHash();
 
         // clear depositor list
         delete depositors;
@@ -188,41 +187,43 @@ abstract contract Lottery is
         // if already selected winner, should revert
         if (winnersSelected) revert AlreadyWinnerSelected();
 
+        uint256 depositorCount = depositors.length;
+
         // if there is no depositors in the current lottery, should revert
-        if (numberOfDepositors == 0) revert NoParticipantsInLottery();
+        if (depositorCount == 0) revert NoParticipantsInLottery();
+
+        uint256 winnerCount = numberOfWinners;
 
         // if depositors are less than winners, should revert
-        if (numberOfWinners > numberOfDepositors)
-            revert InvalidNumberOfWinners();
+        if (winnerCount > depositorCount) revert InvalidNumberOfWinners();
 
-        address[] memory selectedWinners = new address[](numberOfWinners);
+        address[] memory selectedWinners = new address[](winnerCount);
 
         // Choose winner using QuickSelect algorithm
         SelectLibrary.quickselect(
             depositors,
             rootHash,
             0,
-            numberOfDepositors - 1,
-            numberOfWinners,
+            depositorCount - 1,
+            winnerCount,
             selectedWinners
         );
 
+        uint256 totalAmount = totalDepositAmount;
+
         // calculates the reward amount for the winners by subtracting the protocol fee from the total deposit amount.
-        uint256 rewardAmount = totalDepositAmount.mul(100 - protocolFee).div(
-            100
-        );
+        uint256 rewardAmount = totalAmount.mul(100 - protocolFee).div(100);
 
         // calculates the reward amount per winner.
-        uint256 rewardAmountPerUser = rewardAmount.div(numberOfWinners);
+        uint256 rewardAmountPerUser = rewardAmount.div(winnerCount);
 
         // updates the reward amount for each winner's ticket.
-        for (uint256 i; i != numberOfWinners; ++i) {
-            Ticket storage ticket = tickets[selectedWinners[i]];
-            ticket.rewardAmount += rewardAmountPerUser;
+        for (uint256 i; i != winnerCount; ++i) {
+            tickets[selectedWinners[i]].rewardAmount += rewardAmountPerUser;
         }
 
         // calculates the accumulated protocol reward by subtracting the reward amount from the total deposit amount.
-        accumulatedProtocolReward += totalDepositAmount.sub(rewardAmount);
+        accumulatedProtocolReward += totalAmount.sub(rewardAmount);
 
         // sets the winnersSelected flag to true to indicate that the winners have been selected.
         winnersSelected = true;
@@ -255,9 +256,6 @@ abstract contract Lottery is
 
         // check if user already joined to the lottery portal once
         if (ticket.tokenId == 0) {
-            // increment depositor count;
-            numberOfDepositors++;
-
             // add new depositor in the depositor list
             depositors.push(SelectLibrary.Depositor(msg.sender, msg.value));
 
@@ -284,9 +282,6 @@ abstract contract Lottery is
                     // increase the deposited amount for user
                     depositor.amount += msg.value;
                 } else {
-                    // increment depositor count;
-                    numberOfDepositors++;
-
                     depositors.push(
                         SelectLibrary.Depositor(msg.sender, msg.value)
                     );
@@ -295,9 +290,6 @@ abstract contract Lottery is
                     ticket.depositorId = depositors.length;
                 }
             } else {
-                // increment depositor count;
-                numberOfDepositors++;
-
                 depositors.push(SelectLibrary.Depositor(msg.sender, msg.value));
                 ticket.depositorId = depositors.length;
             }
