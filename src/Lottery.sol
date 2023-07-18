@@ -316,11 +316,6 @@ abstract contract Lottery is
      * - The user cannot rent their own ticket.
      * - The user cannot rent a ticket if they already have a rented ticket.
      * - The owner of the ticket must have a valid NFT token.
-     *
-     * Effects:
-     * - Mints a new wrapped NFT token for the borrower and sets the owner to the borrower's address.
-     * - Sets the wrapped token ID on the owner's ticket to the ID of the newly minted wrapped token.
-     * - Emits a `BorrowedTicket` event with the borrower's address, the ticket ID, and the wrapped token ID.
      */
     function rentTicket(
         address _owner
