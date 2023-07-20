@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.20;
 import "@openzeppelin-upgrade/contracts/utils/math/SafeMathUpgradeable.sol";
 
 library SelectLibrary {
