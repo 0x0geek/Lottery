@@ -10,6 +10,7 @@ import "../src/LotteryV1.sol";
 import "../src/LotteryV2.sol";
 import {BaseSetup} from "./BaseSetup.sol";
 import {UUPSProxy} from "./utils/UUPSProxy.sol";
+import {MerkleTree} from "./MerkleTree.sol";
 
 contract LotteryTest is BaseSetup {
     using ClonesUpgradeable for address;
@@ -56,7 +57,62 @@ contract LotteryTest is BaseSetup {
 
         assertEq(wrappedProxy2.rentAmount(), RENT_AMOUNT);
 
-        wrappedProxy2.setPrizeNumber(200);
-        assertEq(wrappedProxy2.prizeNumber(), 200);
+        wrappedProxy2.setPrizeAmount(200);
+        assertEq(wrappedProxy2.prizeAmount(), 200);
+        assertEq(wrappedProxy2.protocolFee(), PROTOCOL_FEE);
     }
+
+    // function testGenerateMerkleTree() public {
+    //     uint256 length = users.length;
+
+    //     address[] memory whitelistUsers = new address[](length);
+
+    //     for (uint256 i; i != length; ++i) {
+    //         whitelistUsers[i] = users[i];
+    //     }
+
+    //     MerkleTree merkleTree = new MerkleTree(whitelistUsers);
+
+    //     assertEq(
+    //         merkleTree.getRoot(),
+    //         0x8dbc2bdf5655b07f404dd2fb7dc9a85ecf58436257795789a8548e228881b36d
+    //     );
+    // }
+
+    // function getMerkleTreeRoot() private returns (bytes32) {
+    //     uint256 length = users.length;
+
+    //     address[] memory whitelistUsers = new address[](length);
+
+    //     for (uint256 i; i != length; ++i) {
+    //         whitelistUsers[i] = users[i];
+    //     }
+
+    //     MerkleTree merkleTree = new MerkleTree(whitelistUsers);
+    //     bytes32 rootHash = merkleTree.getRoot();
+
+    //     assertEq(
+    //         rootHash,
+    //         0x8dbc2bdf5655b07f404dd2fb7dc9a85ecf58436257795789a8548e228881b36d
+    //     );
+
+    //     return rootHash;
+    // }
+
+    // function testIntegration() public {
+    //     bytes32 rootHash = getMerkleTreeRoot();
+
+    //     wrappedProxy1.startLottery(rootHash);
+
+    //     vm.startPrank(alice);
+    //     bytes32[] memory data = new bytes32[](2);
+    //     data[
+    //         0
+    //     ] = 0x0bd8c9c2ec12639173b58f716b945909988d63d0d61b99ce5356b80b1443238c;
+    //     data[
+    //         1
+    //     ] = 0x7a71af3d21c3235c7f81420b8427f9f166d08e5b1e11d837eaf15d00e05c80fe;
+    //     wrappedProxy1.joinLottery(data);
+    //     vm.stopPrank();
+    // }
 }

@@ -14,7 +14,6 @@ import "forge-std/console.sol";
 
 import "./LotteryToken.sol";
 import "./WrappedLotteryToken.sol";
-import "./SelectLibrary.sol";
 
 contract LotteryV1 is
     Initializable,
@@ -32,11 +31,16 @@ contract LotteryV1 is
         bool ownerClaimed;
     }
 
+    struct Depositor {
+        address user;
+        uint256 amount;
+    }
+
     uint256 internal constant DEPOSIT_PERIOD = 7 * 86400; // Duration of the deposit period in seconds
     uint256 internal constant BREAK_PERIOD = 7 * 86400; // Duration of the break period in seconds
 
     mapping(address => Ticket) public tickets; // Ticket for users
-    SelectLibrary.Depositor[] public depositors; // Depositor list
+    Depositor[] public depositors; // Depositor list
 
     bytes32 public rootHash; // root hash for whitelist
     uint8 public rentTokenFee; // Rent fee for a NFT token owner
@@ -44,6 +48,7 @@ contract LotteryV1 is
     uint256 public numberOfWinners; // Number of winners in each period
     uint256 public rentAmount; // Rent amount for NFT ticket
     uint256 public lotteryStartTime; // start timestamp for the current lottery
+    uint256 public averageWeight;
 
     LotteryToken private token; // NFT token for owner
     WrappedLotteryToken private wrappedToken; // Wrapped token for borrower
@@ -140,8 +145,6 @@ contract LotteryV1 is
             "Wrapped NFT Token",
             "WRAPPED_NFT_TOKEN"
         );
-
-        transferOwnership(msg.sender);
     }
 
     /**
@@ -199,17 +202,30 @@ contract LotteryV1 is
 
         address[] memory selectedWinners = new address[](winnerCount);
 
+        uint256 winnerIndex = 0;
         // Choose winner using QuickSelect algorithm
-        SelectLibrary.quickselect(
-            depositors,
-            rootHash,
-            0,
-            depositorCount - 1,
-            winnerCount,
-            selectedWinners
-        );
+        for (uint256 i; i != winnerCount; ++i) {
+            uint256 winningNumber = random() % totalDepositAmount;
+
+            uint256 accumulated = 0;
+
+            for (uint256 j = 0; j < depositorCount; i++) {
+                Depositor memory depositor = depositors[j];
+
+                accumulated += depositor.amount;
+
+                if (accumulated >= winningNumber) {
+                    totalDepositAmount -= depositor.amount;
+                    selectedWinners[winnerIndex] = depositor.user;
+                    winnerIndex++;
+                    removeDeposit(j);
+                    break;
+                }
+            }
+        }
 
         uint256 totalAmount = totalDepositAmount;
+        averageWeight = totalAmount.div(depositors.length);
 
         // calculates the reward amount for the winners by subtracting the protocol fee from the total deposit amount.
         uint256 rewardAmount = totalAmount.mul(100 - protocolFee).div(100);
@@ -231,6 +247,18 @@ contract LotteryV1 is
         emit WinnerSelected(selectedWinners);
     }
 
+    function removeDeposit(uint256 index) private {
+        depositors[index] = depositors[depositors.length - 1];
+        depositors.pop();
+    }
+
+    function random() private view returns (uint256) {
+        return
+            uint256(
+                keccak256(abi.encodePacked(block.timestamp, block.difficulty))
+            );
+    }
+
     /**
      * @dev Allows a user to join the current lottery by depositing ETH and receiving a ticket.
      *
@@ -242,13 +270,19 @@ contract LotteryV1 is
      * - The function can only be called during the deposit period.
      */
     function joinLottery(
-        bytes32[] calldata data
+        bytes32[] memory _data
     ) external payable nonReentrant onlyDuringDepositPeriod {
+        uint256 depositAmount = msg.value;
+
         // check if user transfer the valid ETH's amount
         if (msg.value == 0) {
             // whitelist user doesn't need to send ETH
-            if (!verifyWhitelistUser(data, msg.sender))
+            if (!verifyWhitelistUser(_data, msg.sender)) {
                 revert NotWhitelistedUser();
+            }
+
+            if (averageWeight == 0) depositAmount = 1 ether;
+            else depositAmount = averageWeight;
         }
 
         // get ticket for user
@@ -257,7 +291,7 @@ contract LotteryV1 is
         // check if user already joined to the lottery portal once
         if (ticket.tokenId == 0) {
             // add new depositor in the depositor list
-            depositors.push(SelectLibrary.Depositor(msg.sender, msg.value));
+            depositors.push(Depositor(msg.sender, msg.value));
 
             // mint new NFT token for user
             uint256 tokenId = token.mintToken(msg.sender);
@@ -274,23 +308,19 @@ contract LotteryV1 is
 
             // check if ticket is already created and owner didn't deposit yet in the current lottery draw.
             if (depositorIndex >= 0 && depositorIndex < depositors.length) {
-                SelectLibrary.Depositor storage depositor = depositors[
-                    depositorIndex
-                ];
+                Depositor storage depositor = depositors[depositorIndex];
 
                 if (depositor.user == msg.sender) {
                     // increase the deposited amount for user
                     depositor.amount += msg.value;
                 } else {
-                    depositors.push(
-                        SelectLibrary.Depositor(msg.sender, msg.value)
-                    );
+                    depositors.push(Depositor(msg.sender, msg.value));
 
                     // update token's deposit id
                     ticket.depositorId = depositors.length;
                 }
             } else {
-                depositors.push(SelectLibrary.Depositor(msg.sender, msg.value));
+                depositors.push(Depositor(msg.sender, msg.value));
                 ticket.depositorId = depositors.length;
             }
         }
@@ -590,16 +620,16 @@ contract LotteryV1 is
     /**
      * @dev Verifies whether a user is on the whitelist.
      *
-     * @param proof The Merkle proof for the user.
-     * @param user The address of the user.
+     * @param _proof The Merkle proof for the user.
+     * @param _user The address of the user.
      * @return `true` if the user is on the whitelist, `false` otherwise.
      */
     function verifyWhitelistUser(
-        bytes32[] memory proof,
-        address user
+        bytes32[] memory _proof,
+        address _user
     ) internal view returns (bool) {
-        bytes32 leaf = keccak256(abi.encodePacked(user));
-        return MerkleProofUpgradeable.verify(proof, rootHash, leaf);
+        bytes32 leaf = keccak256(abi.encodePacked(_user));
+        return MerkleProofUpgradeable.verify(_proof, rootHash, leaf);
     }
 
     function _authorizeUpgrade(
