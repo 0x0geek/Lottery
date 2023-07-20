@@ -1,5 +1,7 @@
-const { MerkleTree } = require("merkletreejs");;
-const keccak256 = require("keccak256");
+const { MerkleTree } = require("merkletreejs");
+const { keccak256 } = require("web3-utils");
+const ethers = require('ethers');
+
 var fs = require("fs");
 var path = require("path");
 const WALLET_FILE_PATH = "./data/wallets.dat";
@@ -9,9 +11,15 @@ const wallets = fs
     .readFileSync(WALLET_FILE_PATH, "utf8")
     .split("\n");
 
-const leaves = wallets.map(wallet => keccak256(wallet));
-const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+const leaves = wallets.map(wallet =>
+    ethers.utils.keccak256(wallet.replace("\r", ""))
+);
+console.log(leaves);
+const tree = new MerkleTree(leaves, ethers.utils.keccak256, { sortPairs: true });
 const root = tree.getHexRoot();
+const rootHash = tree.getRoot().toString('hex');
+console.log(root);
+console.log(rootHash);
 
 let data = "";
 
@@ -19,6 +27,7 @@ for (let i = 0; i < leaves.length; i++) {
     const leaf = leaves[i];
 
     const proof = tree.getHexProof(leaf);
+    console.log("leaf = ", leaf);
 
     data += "Wallet Address : " + wallets[i] + "\n";
     data += "Proof : " + proof + "\n";
