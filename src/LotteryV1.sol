@@ -139,9 +139,9 @@ contract LotteryV1 is
         rentTokenFee = _rentTokenFee;
         rentAmount = _rentAmount;
 
-        token = new LotteryToken(msg.sender, "NFT Token", "NFT_TOKEN");
+        token = new LotteryToken(address(this), "NFT Token", "NFT_TOKEN");
         wrappedToken = new WrappedLotteryToken(
-            msg.sender,
+            address(this),
             "Wrapped NFT Token",
             "WRAPPED_NFT_TOKEN"
         );
@@ -217,6 +217,7 @@ contract LotteryV1 is
                 if (accumulated >= winningNumber) {
                     totalDepositAmount -= depositor.amount;
                     selectedWinners[winnerIndex] = depositor.user;
+                    console.logAddress(depositor.user);
                     winnerIndex++;
                     removeDeposit(j);
                     break;
@@ -270,14 +271,15 @@ contract LotteryV1 is
      * - The function can only be called during the deposit period.
      */
     function joinLottery(
-        bytes32[] memory _data
+        bytes32[] calldata _data
     ) external payable nonReentrant onlyDuringDepositPeriod {
         uint256 depositAmount = msg.value;
 
         // check if user transfer the valid ETH's amount
         if (msg.value == 0) {
+            bytes32[] memory proof = _data;
             // whitelist user doesn't need to send ETH
-            if (!verifyWhitelistUser(_data, msg.sender)) {
+            if (!verifyWhitelistUser(proof, msg.sender)) {
                 revert NotWhitelistedUser();
             }
 
@@ -319,14 +321,17 @@ contract LotteryV1 is
                     // update token's deposit id
                     ticket.depositorId = depositors.length;
                 }
-            } else {
-                depositors.push(Depositor(msg.sender, msg.value));
-                ticket.depositorId = depositors.length;
             }
+            //  else {
+            //     console.logString("here callled");
+            //     depositors.push(Depositor(msg.sender, msg.value));
+            //     ticket.depositorId = depositors.length;
+            // }
         }
 
         // increase the deposited amount for current lottery
         totalDepositAmount += msg.value;
+        console.logUint(totalDepositAmount);
 
         emit JoinedLottery(ticket.tokenId, msg.sender, msg.value);
     }
