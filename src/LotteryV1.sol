@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.13;
+pragma solidity 0.8.20;
 
 import "@openzeppelin-upgrade/contracts/token/ERC721/IERC721Upgradeable.sol";
 import "@openzeppelin-upgrade/contracts/access/OwnableUpgradeable.sol";
@@ -16,7 +16,7 @@ import "./LotteryToken.sol";
 import "./WrappedLotteryToken.sol";
 import "./SelectLibrary.sol";
 
-abstract contract Lottery is
+contract LotteryV1 is
     Initializable,
     UUPSUpgradeable,
     OwnableUpgradeable,
@@ -600,5 +600,13 @@ abstract contract Lottery is
     ) internal view returns (bool) {
         bytes32 leaf = keccak256(abi.encodePacked(user));
         return MerkleProofUpgradeable.verify(proof, rootHash, leaf);
+    }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
+
+    function getImplementation() external view returns (address) {
+        return _getImplementation();
     }
 }
