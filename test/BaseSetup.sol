@@ -24,7 +24,7 @@ contract BaseSetup is Test {
 
     function setUp() public virtual {
         utils = new Utils();
-        users = utils.createUsers(6);
+        users = utils.createUsers(50);
 
         alice = users[0];
         vm.label(alice, "Alice");
