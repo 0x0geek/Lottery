@@ -2,6 +2,7 @@
 pragma solidity 0.8.20;
 
 import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 
 contract Utils is Test {
     bytes32 internal nextUser = keccak256(abi.encodePacked("user address"));
@@ -21,6 +22,7 @@ contract Utils is Test {
             address payable user = this.getNextUserAddress();
             vm.deal(user, 100 ether);
             users[i] = user;
+            // console.log(user);
         }
 
         return users;
