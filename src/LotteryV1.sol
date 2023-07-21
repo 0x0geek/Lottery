@@ -34,6 +34,13 @@ contract LotteryV1 is
     struct Depositor {
         address user;
         uint256 amount;
+        bool isWhitelistUser;
+    }
+
+    enum LOTTERY_STATE {
+        DEPOSIT,
+        BREAK,
+        ENDED
     }
 
     uint256 internal constant DEPOSIT_PERIOD = 7 * 86400; // Duration of the deposit period in seconds
@@ -47,7 +54,7 @@ contract LotteryV1 is
     uint8 public protocolFee; // Lottery fee to be rewarded to Lottery contract onwer
     uint256 public numberOfWinners; // Number of winners in each period
     uint256 public rentAmount; // Rent amount for NFT ticket
-    uint256 public lotteryStartTime; // start timestamp for the current lottery
+    uint256 public lotteryUpdatedTime; // start timestamp for the current lottery
     uint256 public averageWeight;
 
     LotteryToken private token; // NFT token for owner
@@ -56,6 +63,8 @@ contract LotteryV1 is
     uint256 internal totalDepositAmount; // Total deposit amount in the current lottery
     uint256 internal accumulatedProtocolReward; // Protocol fee Reward
     bool internal winnersSelected;
+    address internal devAddress;
+    LOTTERY_STATE public lotteryState;
 
     event JoinedLottery(
         uint256 indexed tokenId,
@@ -73,6 +82,7 @@ contract LotteryV1 is
 
     error NotWhitelistedUser();
     error LotteryNotEnded();
+    error InvalidDevAddress();
     error LotteryNotInDepositPeriod();
     error LotteryNotInBreakPeriod();
     error InsufficientRentAmount();
@@ -81,7 +91,7 @@ contract LotteryV1 is
     error InvalidTicketForOwner();
     error NotWinner();
     error NotAvailableReward();
-    error AlreadyClaimedReward();
+    error NoReward();
     error AlreadyWinnerSelected();
     error NoParticipantsInLottery();
     error InvalidNumberOfWinners();
@@ -116,6 +126,11 @@ contract LotteryV1 is
         _;
     }
 
+    modifier onlyDevAddress() {
+        checkDevAddress();
+        _;
+    }
+
     /**
      * @dev Initializes the contract with the specified parameters.
      * @param _protocolFee The percentage of the total reward that will be charged as protocol fee.
@@ -129,7 +144,8 @@ contract LotteryV1 is
         uint8 _protocolFee,
         uint8 _rentTokenFee,
         uint256 _rentAmount,
-        uint256 _numberOfWinners
+        uint256 _numberOfWinners,
+        address _devAddress
     ) external initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
@@ -138,6 +154,8 @@ contract LotteryV1 is
         protocolFee = _protocolFee;
         rentTokenFee = _rentTokenFee;
         rentAmount = _rentAmount;
+        devAddress = _devAddress;
+        lotteryState = LOTTERY_STATE.ENDED;
 
         token = new LotteryToken(address(this), "NFT Token", "NFT_TOKEN");
         wrappedToken = new WrappedLotteryToken(
@@ -164,16 +182,19 @@ contract LotteryV1 is
         // update rootHash for whitelist users
         rootHash = _rootHash;
 
-        // start lottery and set start time as now
-        lotteryStartTime = block.timestamp;
-
         // clear totalDeposit amount for new lottery
         totalDepositAmount = 0;
 
         // set winner flag as false and available to decide winner for the current lottery
         winnersSelected = false;
 
-        emit StartedLottery(lotteryStartTime);
+        // lottery state as DEPOSIT period
+        lotteryState = LOTTERY_STATE.DEPOSIT;
+
+        // start lottery and set start time as now
+        lotteryUpdatedTime = block.timestamp;
+
+        emit StartedLottery(lotteryUpdatedTime);
     }
 
     /**
@@ -202,29 +223,6 @@ contract LotteryV1 is
 
         address[] memory selectedWinners = new address[](winnerCount);
 
-        uint256 winnerIndex = 0;
-        // Choose winner using QuickSelect algorithm
-        for (uint256 i; i != winnerCount; ++i) {
-            uint256 winningNumber = random() % totalDepositAmount;
-
-            uint256 accumulated = 0;
-
-            for (uint256 j = 0; j < depositorCount; i++) {
-                Depositor memory depositor = depositors[j];
-
-                accumulated += depositor.amount;
-
-                if (accumulated >= winningNumber) {
-                    totalDepositAmount -= depositor.amount;
-                    selectedWinners[winnerIndex] = depositor.user;
-                    console.logAddress(depositor.user);
-                    winnerIndex++;
-                    removeDeposit(j);
-                    break;
-                }
-            }
-        }
-
         uint256 totalAmount = totalDepositAmount;
         averageWeight = totalAmount.div(depositors.length);
 
@@ -234,29 +232,62 @@ contract LotteryV1 is
         // calculates the reward amount per winner.
         uint256 rewardAmountPerUser = rewardAmount.div(winnerCount);
 
-        // updates the reward amount for each winner's ticket.
-        for (uint256 i; i != winnerCount; ++i) {
-            tickets[selectedWinners[i]].rewardAmount += rewardAmountPerUser;
-        }
-
         // calculates the accumulated protocol reward by subtracting the reward amount from the total deposit amount.
         accumulatedProtocolReward += totalAmount.sub(rewardAmount);
+
+        // Choose winner using QuickSelect algorithm
+        for (uint256 i; i != winnerCount; ++i) {
+            uint256 winningNumber;
+
+            if (totalDepositAmount > 0)
+                winningNumber = random() % totalDepositAmount;
+            else {
+                continue;
+            }
+
+            uint256 accumulated = 0;
+
+            for (uint256 j; j != depositorCount; j++) {
+                Depositor memory depositor = depositors[j];
+
+                accumulated += depositor.amount;
+
+                if (accumulated >= winningNumber) {
+                    totalDepositAmount -= depositor.amount;
+                    selectedWinners[i] = depositor.user;
+
+                    tickets[selectedWinners[i]]
+                        .rewardAmount += rewardAmountPerUser;
+                    removeDeposit(j);
+                    break;
+                }
+            }
+        }
 
         // sets the winnersSelected flag to true to indicate that the winners have been selected.
         winnersSelected = true;
 
+        // set lottery state as BREAK
+        lotteryState = LOTTERY_STATE.BREAK;
+
         emit WinnerSelected(selectedWinners);
     }
 
-    function removeDeposit(uint256 index) private {
+    function removeDeposit(uint256 index) internal {
         depositors[index] = depositors[depositors.length - 1];
         depositors.pop();
     }
 
-    function random() private view returns (uint256) {
+    function random() internal view returns (uint256) {
         return
             uint256(
-                keccak256(abi.encodePacked(block.timestamp, block.difficulty))
+                keccak256(
+                    abi.encodePacked(
+                        rootHash,
+                        block.timestamp,
+                        block.difficulty
+                    )
+                )
             );
     }
 
@@ -283,7 +314,7 @@ contract LotteryV1 is
                 revert NotWhitelistedUser();
             }
 
-            if (averageWeight == 0) depositAmount = 1 ether;
+            if (averageWeight == 0) depositAmount = 1 * 1e18;
             else depositAmount = averageWeight;
         }
 
@@ -293,7 +324,13 @@ contract LotteryV1 is
         // check if user already joined to the lottery portal once
         if (ticket.tokenId == 0) {
             // add new depositor in the depositor list
-            depositors.push(Depositor(msg.sender, msg.value));
+            depositors.push(
+                Depositor(
+                    msg.sender,
+                    depositAmount,
+                    msg.value == 0 ? true : false
+                )
+            );
 
             // mint new NFT token for user
             uint256 tokenId = token.mintToken(msg.sender);
@@ -314,26 +351,26 @@ contract LotteryV1 is
 
                 if (depositor.user == msg.sender) {
                     // increase the deposited amount for user
-                    depositor.amount += msg.value;
+                    depositor.amount += depositAmount;
                 } else {
-                    depositors.push(Depositor(msg.sender, msg.value));
+                    depositors.push(
+                        Depositor(
+                            msg.sender,
+                            depositAmount,
+                            depositAmount == 0 ? true : false
+                        )
+                    );
 
                     // update token's deposit id
                     ticket.depositorId = depositors.length;
                 }
             }
-            //  else {
-            //     console.logString("here callled");
-            //     depositors.push(Depositor(msg.sender, msg.value));
-            //     ticket.depositorId = depositors.length;
-            // }
         }
 
         // increase the deposited amount for current lottery
-        totalDepositAmount += msg.value;
-        console.logUint(totalDepositAmount);
+        totalDepositAmount += depositAmount;
 
-        emit JoinedLottery(ticket.tokenId, msg.sender, msg.value);
+        emit JoinedLottery(ticket.tokenId, msg.sender, depositAmount);
     }
 
     /**
@@ -371,7 +408,7 @@ contract LotteryV1 is
         emit BorrowedTicket(msg.sender, ticket.tokenId, wrappedTokenId);
     }
 
-    function claimReward() external {
+    function claimReward() external nonReentrant {
         _claimReward(msg.sender, true);
     }
 
@@ -381,8 +418,13 @@ contract LotteryV1 is
      * Requirements:
      * - The function can only be called by the contract owner.
      */
-    function withdrawProtocolReward() external onlyOwner returns (uint256) {
-        payable(owner()).transfer(accumulatedProtocolReward);
+    function withdrawProtocolReward()
+        external
+        onlyDevAddress
+        nonReentrant
+        returns (uint256)
+    {
+        payable(devAddress).transfer(accumulatedProtocolReward);
 
         return accumulatedProtocolReward;
     }
@@ -397,15 +439,14 @@ contract LotteryV1 is
      */
     function withdrawProtocolReward(
         uint256 _amount
-    ) external onlyOwner nonReentrant returns (uint256) {
-        uint256 balance = address(owner()).balance;
-
+    ) external onlyDevAddress nonReentrant returns (uint256) {
+        uint256 balance = address(devAddress).balance;
         if (_amount > balance) {
             _amount = balance;
             accumulatedProtocolReward -= _amount;
         }
 
-        payable(owner()).transfer(_amount);
+        payable(devAddress).transfer(_amount);
 
         return accumulatedProtocolReward;
     }
@@ -468,10 +509,7 @@ contract LotteryV1 is
      * @param _user The address of the user claiming the reward.
      * @param _needRevert The flag decide to revert, or not.
      */
-    function _claimReward(
-        address _user,
-        bool _needRevert
-    ) internal nonReentrant {
+    function _claimReward(address _user, bool _needRevert) internal {
         // check if winners are selected in the current lottery draw
         if (winnersSelected == false) {
             if (_needRevert) revert NotSelectedWinners();
@@ -481,14 +519,15 @@ contract LotteryV1 is
         // get user wrapped token id
         uint256 borrowTokenId = wrappedToken.tokenIdOf(_user);
 
-        // get owner of nft token linked to the wrapped token
-        address owner = wrappedToken.originOwnerOf(borrowTokenId);
-
         // get owner's ticket
-        Ticket storage ticket = tickets[owner];
+        Ticket storage ticket;
 
         // check if user has a borrow token
         if (borrowTokenId > 0) {
+            // get owner of nft token linked to the wrapped token
+            address owner = wrappedToken.originOwnerOf(borrowTokenId);
+            ticket = tickets[owner];
+
             // check if period is in break for getting reward
             checkInBreakPeriod();
 
@@ -518,11 +557,19 @@ contract LotteryV1 is
 
             // transfer reward to borrower
             payable(_user).transfer(borrowerReward);
+
+            uint256 tokenId = token.tokenIdOf(_user);
+
+            if (tokenId == 0) return;
+
+            ticket = tickets[_user];
+        } else {
+            ticket = tickets[msg.sender];
         }
 
         // check if ticket is win or has reward
         if (ticket.rewardAmount == 0) {
-            if (_needRevert) revert AlreadyClaimedReward();
+            if (_needRevert) revert NotAvailableReward();
             else return;
         }
 
@@ -560,7 +607,7 @@ contract LotteryV1 is
         }
 
         // transfer reward to user
-        payable(_user).transfer(rewardAmount);
+        if (rewardAmount > 0) payable(_user).transfer(rewardAmount);
 
         emit ClaimedReward(rewardAmount);
     }
@@ -575,13 +622,16 @@ contract LotteryV1 is
      * - `LotteryNotEnded` if the lottery has not ended yet.
      */
     function checkLotteryEnded() internal view virtual {
-        if (block.timestamp < lotteryStartTime + DEPOSIT_PERIOD + BREAK_PERIOD)
+        if (block.timestamp < lotteryUpdatedTime + BREAK_PERIOD)
             revert LotteryNotEnded();
     }
 
+    function checkDevAddress() internal view virtual {
+        if (devAddress != msg.sender) revert InvalidDevAddress();
+    }
+
     function isLotteryEnded() internal view returns (bool) {
-        if (block.timestamp < lotteryStartTime + DEPOSIT_PERIOD + BREAK_PERIOD)
-            return false;
+        if (block.timestamp < lotteryUpdatedTime + BREAK_PERIOD) return false;
 
         return true;
     }
@@ -596,12 +646,8 @@ contract LotteryV1 is
      * - `LotteryNotInDepositPeriod` if the current time is not within the deposit period.
      */
     function checkInDepsoitPeriod() internal view virtual {
-        uint256 currentTime = block.timestamp;
-
-        if (
-            currentTime < lotteryStartTime ||
-            currentTime > lotteryStartTime + DEPOSIT_PERIOD
-        ) revert LotteryNotInDepositPeriod();
+        if (lotteryState != LOTTERY_STATE.DEPOSIT)
+            revert LotteryNotInDepositPeriod();
     }
 
     /**
@@ -614,12 +660,8 @@ contract LotteryV1 is
      * - `LotteryNotInBreakPeriod` if the current time is not within the break period.
      */
     function checkInBreakPeriod() internal view virtual {
-        uint256 currentTime = block.timestamp;
-
-        if (
-            currentTime < lotteryStartTime + DEPOSIT_PERIOD ||
-            currentTime > lotteryStartTime + DEPOSIT_PERIOD + BREAK_PERIOD
-        ) revert LotteryNotInBreakPeriod();
+        if (lotteryState != LOTTERY_STATE.BREAK)
+            revert LotteryNotInBreakPeriod();
     }
 
     /**

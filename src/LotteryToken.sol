@@ -3,6 +3,7 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "forge-std/console.sol";
 
 contract LotteryToken is ERC721 {
     using Counters for Counters.Counter;
