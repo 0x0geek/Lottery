@@ -2,6 +2,7 @@
 cache/
 out/
 test/scripts/node_modules/
+node_modules/
 
 # Ignores development broadcast logs
 !/broadcast
