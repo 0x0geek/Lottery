@@ -40,12 +40,12 @@ node test/scripts/merkle_tree.js
 forge test --fork-url <FORK_URL> -vvv --fork-block-number <BLOCK_NUMBER>
 ```
 
-7. Deploy the smart contract to your desired Ethereum network using Forge or Hardhat or any other deployment tool of your choice.
+6. Deploy the smart contract to your desired Ethereum network using Forge or Hardhat or any other deployment tool of your choice.
 ```shell
 forge script script/Lottery.s.sol --rpc-url <RPC_URL> --chain-id 80001 --etherscan-api-key <ETHER_SCAN_API_KEY> --broadcast --verify -vvvv --legacy                 
 ```
 
-6. Create and deploy the subgraph to fetch the list of winners. Refer to the documentation of the subgraph framework you are using for detailed instructions.
+7. Create and deploy the subgraph to fetch the list of winners. Refer to the documentation of the subgraph framework you are using for detailed instructions.
 
 - Proxy
 https://mumbai.polygonscan.com/address/0xCCF6a20fd003C44cB48c3cF6A211659262d70F23
