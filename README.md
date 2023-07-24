@@ -40,7 +40,7 @@ node test/scripts/merkle_tree.js
 forge test --fork-url <FORK_URL> -vvv --fork-block-number <BLOCK_NUMBER>
 ```
 
-6. Deploy the smart contract to your desired Ethereum network using Forge or Hardhat or any other deployment tool of your choice.
+7. Deploy the smart contract to your desired Ethereum network using Forge or Hardhat or any other deployment tool of your choice.
 ```shell
 forge script script/Lottery.s.sol --rpc-url <RPC_URL> --chain-id 80001 --etherscan-api-key <ETHER_SCAN_API_KEY> --broadcast --verify -vvvv --legacy                 
 ```
