@@ -16,17 +16,17 @@ contract Lottery is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         LotteryV1 lottery1 = new LotteryV1();
-        // UUPSProxy proxy = new UUPSProxy(address(lottery1), new bytes(0));
+        UUPSProxy proxy = new UUPSProxy(address(lottery1), new bytes(0));
 
-        // LotteryV1 wrappedProxy1 = LotteryV1(address(proxy));
+        LotteryV1 wrappedProxy1 = LotteryV1(address(proxy));
 
-        // wrappedProxy1.initialize(
-        //     PROTOCOL_FEE,
-        //     RENTTOKEN_FEE,
-        //     RENT_AMOUNT,
-        //     WINNER_COUNT,
-        //     0xEE86283a2DFCc1f52E86790e275e5b07b44A50E5
-        // );
+        wrappedProxy1.initialize(
+            PROTOCOL_FEE,
+            RENTTOKEN_FEE,
+            RENT_AMOUNT,
+            WINNER_COUNT,
+            0xEE86283a2DFCc1f52E86790e275e5b07b44A50E5
+        );
 
         vm.stopBroadcast();
     }
