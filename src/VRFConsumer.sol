@@ -21,7 +21,6 @@ contract VRFConsumer is VRFConsumerBaseV2 {
     // The default is 3, but you can set this higher.
     uint16 requestConfirmations = 5;
     uint32 public numWords = 10;
-    uint256[] public randomWords;
     uint256 public requestId;
     address internal ownerAddress;
 
@@ -61,7 +60,6 @@ contract VRFConsumer is VRFConsumerBaseV2 {
         uint256 /*_requestId*/,
         uint256[] memory _randomWords
     ) internal override {
-        randomWords = _randomWords;
         lottery.fulfillRandomWords(_randomWords);
     }
 }
