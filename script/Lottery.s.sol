@@ -19,7 +19,6 @@ contract Lottery is Script {
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        console.logUint(deployerPrivateKey);
         vm.startBroadcast(deployerPrivateKey);
 
         LotteryV1 lottery1 = new LotteryV1();

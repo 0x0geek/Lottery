@@ -22,7 +22,6 @@ contract Utils is Test {
             address payable user = this.getNextUserAddress();
             vm.deal(user, 100 ether);
             users[i] = user;
-            // console.log(user);
         }
 
         return users;
