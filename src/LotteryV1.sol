@@ -8,10 +8,10 @@ import "@openzeppelin-upgrade/contracts/token/ERC721/utils/ERC721HolderUpgradeab
 import "@openzeppelin-upgrade/contracts/utils/math/SafeMathUpgradeable.sol";
 import "@openzeppelin-upgrade/contracts/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin-upgrade/contracts/utils/cryptography/MerkleProofUpgradeable.sol";
-import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 
 import "./LotteryToken.sol";
 import "./WrappedLotteryToken.sol";
+import "./VRFConsumer.sol";
 
 contract LotteryV1 is
     Initializable,
@@ -43,6 +43,7 @@ contract LotteryV1 is
 
     uint256 internal constant DEPOSIT_PERIOD = 7 * 86400; // Duration of the deposit period in seconds
     uint256 internal constant BREAK_PERIOD = 7 * 86400; // Duration of the break period in seconds
+    uint64 internal constant SUBSCRIPTION_ID = 5534;
 
     mapping(address => Ticket) public tickets; // Ticket for users
     Depositor[] public depositors; // Depositor list
@@ -50,13 +51,14 @@ contract LotteryV1 is
     bytes32 public rootHash; // root hash for whitelist
     uint8 public rentTokenFee; // Rent fee for a NFT token owner
     uint8 public protocolFee; // Lottery fee to be rewarded to Lottery contract onwer
-    uint256 public numberOfWinners; // Number of winners in each period
+    uint32 public numberOfWinners; // Number of winners in each period
     uint256 public rentAmount; // Rent amount for NFT ticket
     uint256 public lotteryUpdatedTime; // start timestamp for the current lottery
     uint256 public averageWeight;
 
     LotteryToken private token; // NFT token for owner
     WrappedLotteryToken private wrappedToken; // Wrapped token for borrower
+    VRFConsumer private vrfConsumer;
 
     uint256 internal totalDepositAmount; // Total deposit amount in the current lottery
     uint256 internal accumulatedProtocolReward; // Protocol fee Reward
@@ -141,8 +143,8 @@ contract LotteryV1 is
     function initialize(
         uint8 _protocolFee,
         uint8 _rentTokenFee,
+        uint32 _numberOfWinners,
         uint256 _rentAmount,
-        uint256 _numberOfWinners,
         address _devAddress
     ) external initializer {
         __Ownable_init();
@@ -161,6 +163,8 @@ contract LotteryV1 is
             "Wrapped NFT Token",
             "WRAPPED_NFT_TOKEN"
         );
+
+        vrfConsumer = new VRFConsumer(SUBSCRIPTION_ID, address(this));
     }
 
     /**
@@ -214,79 +218,15 @@ contract LotteryV1 is
         // if there is no depositors in the current lottery, should revert
         if (depositorCount == 0) revert NoParticipantsInLottery();
 
-        uint256 winnerCount = numberOfWinners;
-
         // if depositors are less than winners, should revert
-        if (winnerCount > depositorCount) revert InvalidNumberOfWinners();
+        if (numberOfWinners > depositorCount) revert InvalidNumberOfWinners();
 
-        address[] memory selectedWinners = new address[](winnerCount);
-
-        uint256 totalAmount = totalDepositAmount;
-        averageWeight = totalAmount.div(depositors.length);
-
-        // calculates the reward amount for the winners by subtracting the protocol fee from the total deposit amount.
-        uint256 rewardAmount = totalAmount.mul(100 - protocolFee).div(100);
-
-        // calculates the reward amount per winner.
-        uint256 rewardAmountPerUser = rewardAmount.div(winnerCount);
-
-        // calculates the accumulated protocol reward by subtracting the reward amount from the total deposit amount.
-        accumulatedProtocolReward += totalAmount.sub(rewardAmount);
-
-        // Choose winner using QuickSelect algorithm
-        for (uint256 i; i != winnerCount; ++i) {
-            uint256 winningNumber;
-
-            if (totalDepositAmount > 0)
-                winningNumber = random() % totalDepositAmount;
-            else {
-                continue;
-            }
-
-            uint256 accumulated = 0;
-
-            for (uint256 j; j != depositorCount; j++) {
-                Depositor memory depositor = depositors[j];
-
-                accumulated += depositor.amount;
-
-                if (accumulated >= winningNumber) {
-                    totalDepositAmount -= depositor.amount;
-                    selectedWinners[i] = depositor.user;
-
-                    tickets[selectedWinners[i]]
-                        .rewardAmount += rewardAmountPerUser;
-                    removeDeposit(j);
-                    break;
-                }
-            }
-        }
-
-        // sets the winnersSelected flag to true to indicate that the winners have been selected.
-        winnersSelected = true;
-
-        // set lottery state as BREAK
-        lotteryState = LOTTERY_STATE.BREAK;
-
-        emit WinnerSelected(selectedWinners);
+        vrfConsumer.requestRandomWords();
     }
 
     function removeDeposit(uint256 index) internal {
         depositors[index] = depositors[depositors.length - 1];
         depositors.pop();
-    }
-
-    function random() internal view returns (uint256) {
-        return
-            uint256(
-                keccak256(
-                    abi.encodePacked(
-                        rootHash,
-                        block.timestamp,
-                        block.difficulty
-                    )
-                )
-            );
     }
 
     /**
@@ -489,9 +429,10 @@ contract LotteryV1 is
      * @param _numberOfWinners The new number of winners.
      */
     function setNumberOfWinners(
-        uint256 _numberOfWinners
+        uint32 _numberOfWinners
     ) external onlyOwner onlyLotteryEnded {
         numberOfWinners = _numberOfWinners;
+        vrfConsumer.setNumWords(_numberOfWinners);
     }
 
     /**
@@ -608,6 +549,64 @@ contract LotteryV1 is
         if (rewardAmount > 0) payable(_user).transfer(rewardAmount);
 
         emit ClaimedReward(rewardAmount);
+    }
+
+    function fulfillRandomWords(
+        uint256[] memory _randomWords
+    ) external virtual {
+        uint256 winnerCount = _randomWords.length;
+
+        address[] memory selectedWinners = new address[](winnerCount);
+
+        uint256 totalAmount = totalDepositAmount;
+        averageWeight = totalAmount.div(depositors.length);
+
+        // calculates the reward amount for the winners by subtracting the protocol fee from the total deposit amount.
+        uint256 rewardAmount = totalAmount.mul(100 - protocolFee).div(100);
+
+        // calculates the reward amount per winner.
+        uint256 rewardAmountPerUser = rewardAmount.div(winnerCount);
+
+        // calculates the accumulated protocol reward by subtracting the reward amount from the total deposit amount.
+        accumulatedProtocolReward += totalAmount.sub(rewardAmount);
+
+        // Choose winner using QuickSelect algorithm
+        for (uint256 i; i != winnerCount; ++i) {
+            uint256 winningNumber;
+
+            if (totalDepositAmount > 0)
+                winningNumber = _randomWords[i] % totalDepositAmount;
+            else {
+                continue;
+            }
+
+            uint256 accumulated = 0;
+            uint256 depositorCount = depositors.length;
+
+            for (uint256 j; j != depositorCount; j++) {
+                Depositor memory depositor = depositors[j];
+
+                accumulated += depositor.amount;
+
+                if (accumulated >= winningNumber) {
+                    totalDepositAmount -= depositor.amount;
+                    selectedWinners[i] = depositor.user;
+
+                    tickets[selectedWinners[i]]
+                        .rewardAmount += rewardAmountPerUser;
+                    removeDeposit(j);
+                    break;
+                }
+            }
+        }
+
+        // sets the winnersSelected flag to true to indicate that the winners have been selected.
+        winnersSelected = true;
+
+        // set lottery state as BREAK
+        lotteryState = LOTTERY_STATE.BREAK;
+
+        emit WinnerSelected(selectedWinners);
     }
 
     /**

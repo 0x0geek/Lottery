@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.20;
 
-import {console} from "forge-std/console.sol";
-
 import "@openzeppelin-upgrade/contracts/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
@@ -26,8 +24,8 @@ contract LotteryTest is BaseSetup {
 
     uint8 internal constant PROTOCOL_FEE = 10;
     uint8 internal constant RENTTOKEN_FEE = 80;
+    uint32 internal constant WINNER_COUNT = 10;
     uint256 internal constant RENT_AMOUNT = 3;
-    uint256 internal constant WINNER_COUNT = 10;
 
     bytes32 internal constant ROOT_HASH =
         0x3f00740cab856a945742c57efce40128df32394d0d7e8732fe46a36da2e40d1a;
@@ -43,8 +41,8 @@ contract LotteryTest is BaseSetup {
         wrappedProxy1.initialize(
             PROTOCOL_FEE,
             RENTTOKEN_FEE,
-            RENT_AMOUNT,
             WINNER_COUNT,
+            RENT_AMOUNT,
             address(david)
         );
     }
