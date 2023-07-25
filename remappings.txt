@@ -1,9 +1,7 @@
+@chainlink/=lib/chainlink/
 @openzeppelin-upgrade/=lib/openzeppelin-contracts-upgradeable/
 @openzeppelin/=lib/openzeppelin-contracts/
-ds-test/=lib/forge-std/lib/ds-test/src/
-erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
-forge-std/=lib/forge-std/src/
-solmate/=lib/solmate/src/
-openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/
-openzeppelin-contracts/=lib/openzeppelin-contracts/
-openzeppelin/=lib/openzeppelin-contracts/contracts/
+chainlink/=lib/chainlink/
+ds-test/=lib/chainlink/contracts/foundry-lib/forge-std/lib/ds-test/src/
+erc4626-tests/=lib/chainlink/contracts/foundry-lib/openzeppelin-contracts/lib/erc4626-tests/
+forge-std/=lib/chainlink/contracts/foundry-lib/openzeppelin-contracts/lib/forge-std/src/
