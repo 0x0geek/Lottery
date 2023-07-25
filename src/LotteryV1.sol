@@ -8,9 +8,7 @@ import "@openzeppelin-upgrade/contracts/token/ERC721/utils/ERC721HolderUpgradeab
 import "@openzeppelin-upgrade/contracts/utils/math/SafeMathUpgradeable.sol";
 import "@openzeppelin-upgrade/contracts/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin-upgrade/contracts/utils/cryptography/MerkleProofUpgradeable.sol";
-
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 
 import "./LotteryToken.sol";
 import "./WrappedLotteryToken.sol";
@@ -682,8 +680,4 @@ contract LotteryV1 is
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
-
-    function getImplementation() external view returns (address) {
-        return _getImplementation();
-    }
 }
