@@ -54,7 +54,7 @@ https://mumbai.polygonscan.com/address/0xCCF6a20fd003C44cB48c3cF6A211659262d70F2
 https://mumbai.polygonscan.com/address/0x51dc3395a4f1985Ca9dd622e6627096726a859E5
 
 - Subgraph
-https://thegraph.com/hosted-service/subgraph/peterch0829/lottery?version=pending
+https://thegraph.com/hosted-service/subgraph/0x00dev/lottery
 
 #### Usage
 
