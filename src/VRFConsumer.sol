@@ -43,8 +43,8 @@ contract VRFConsumer is VRFConsumerBaseV2 {
     }
 
     // Assumes the subscription is funded sufficiently.
-    function requestRandomWords() external view onlyOwner {
-        Will revert if subscription is not set and funded.
+    function requestRandomWords() external onlyOwner {
+        // Will revert if subscription is not set and funded.
         requestId = coordinator.requestRandomWords(
             KEY_HASH,
             subscriptionId,
