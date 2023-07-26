@@ -6,6 +6,10 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 import "../src/LotteryV1.sol";
 import "../src/LotteryV2.sol";
+import "../src/LotteryToken.sol";
+import "../src/WrappedLotteryToken.sol";
+import "../src/VRFConsumer.sol";
+
 import "./utils/Math.sol";
 import {BaseSetup} from "./BaseSetup.sol";
 import {UUPSProxy} from "./utils/UUPSProxy.sol";
@@ -14,8 +18,12 @@ contract LotteryTest is BaseSetup {
     using ClonesUpgradeable for address;
     using MathCeil for uint256;
 
+    LotteryToken public token;
+    WrappedLotteryToken public wrappedToken;
+
     LotteryV1 public lottery1;
     LotteryV2 public lottery2;
+    VRFConsumer public vrfConsumer;
 
     LotteryV1 public wrappedProxy1;
     LotteryV2 public wrappedProxy2;
@@ -25,6 +33,7 @@ contract LotteryTest is BaseSetup {
     uint8 internal constant PROTOCOL_FEE = 10;
     uint8 internal constant RENTTOKEN_FEE = 80;
     uint32 internal constant WINNER_COUNT = 10;
+    uint64 internal constant SUBSCRIPTION_ID = 5534;
     uint256 internal constant RENT_AMOUNT = 3;
 
     bytes32 internal constant ROOT_HASH =
@@ -32,6 +41,14 @@ contract LotteryTest is BaseSetup {
 
     function setUp() public virtual override {
         BaseSetup.setUp();
+
+        token = new LotteryToken("Nft token", "NFT_TOKEN");
+        wrappedToken = new WrappedLotteryToken(
+            "Wrapped Nft token",
+            "WRAPPED_NFT_TOKEN"
+        );
+
+        vrfConsumer = new VRFConsumer(WINNER_COUNT, SUBSCRIPTION_ID);
 
         lottery1 = new LotteryV1();
         proxy = new UUPSProxy(address(lottery1), "");
@@ -43,8 +60,16 @@ contract LotteryTest is BaseSetup {
             RENTTOKEN_FEE,
             WINNER_COUNT,
             RENT_AMOUNT,
-            address(david)
+            address(david),
+            address(token),
+            address(wrappedToken),
+            address(vrfConsumer)
         );
+
+        token.changeManagerAddress(address(wrappedProxy1));
+        wrappedToken.changeManagerAddress(address(wrappedProxy1));
+        vrfConsumer.setLotteryAddress(address(wrappedProxy1));
+        vrfConsumer.changeOwnerAddress(address(wrappedProxy1));
     }
 
     function testCanInitialize() public {

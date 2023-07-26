@@ -3,6 +3,7 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "forge-std/console.sol";
 
 contract LotteryToken is ERC721 {
     using Counters for Counters.Counter;
@@ -22,11 +23,14 @@ contract LotteryToken is ERC721 {
     }
 
     constructor(
-        address _address,
         string memory _name,
         string memory _symbol
     ) ERC721(_name, _symbol) {
-        managerAddress = _address;
+        managerAddress = msg.sender;
+    }
+
+    function changeManagerAddress(address _manager) external onlyManager {
+        managerAddress = _manager;
     }
 
     function mintToken(address _to) external onlyManager returns (uint256) {
