@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 import "./interfaces/ILotteryV1.sol";
+import "forge-std/console.sol";
 
 contract VRFConsumer is VRFConsumerBaseV2 {
     address internal constant VRF_COORDINATOR_ADDRESS =
@@ -20,7 +21,7 @@ contract VRFConsumer is VRFConsumerBaseV2 {
     address internal ownerAddress;
 
     VRFCoordinatorV2Interface internal immutable coordinator;
-    ILotteryV1 internal immutable lottery;
+    ILotteryV1 internal lottery;
 
     modifier onlyOwner() {
         require(msg.sender == ownerAddress);
@@ -28,18 +29,22 @@ contract VRFConsumer is VRFConsumerBaseV2 {
     }
 
     constructor(
-        uint64 _subscriptionId,
-        address _parentAddress
+        uint32 _numWords,
+        uint64 _subscriptionId
     ) VRFConsumerBaseV2(VRF_COORDINATOR_ADDRESS) {
-        lottery = ILotteryV1(_parentAddress);
         coordinator = VRFCoordinatorV2Interface(VRF_COORDINATOR_ADDRESS);
         ownerAddress = msg.sender;
+        numWords = _numWords;
         subscriptionId = _subscriptionId;
     }
 
+    function changeOwnerAddress(address _owner) external onlyOwner {
+        ownerAddress = _owner;
+    }
+
     // Assumes the subscription is funded sufficiently.
-    function requestRandomWords() external onlyOwner {
-        // Will revert if subscription is not set and funded.
+    function requestRandomWords() external view onlyOwner {
+        Will revert if subscription is not set and funded.
         requestId = coordinator.requestRandomWords(
             KEY_HASH,
             subscriptionId,
@@ -52,6 +57,10 @@ contract VRFConsumer is VRFConsumerBaseV2 {
     //function to change the number of requested words per VRF request.
     function setNumWords(uint32 _numWords) external onlyOwner {
         numWords = _numWords;
+    }
+
+    function setLotteryAddress(address _lotteryAddress) external onlyOwner {
+        lottery = ILotteryV1(_lotteryAddress);
     }
 
     function fulfillRandomWords(

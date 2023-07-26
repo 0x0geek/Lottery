@@ -7,10 +7,9 @@ contract WrappedLotteryToken is LotteryToken {
     mapping(uint256 => address) internal originTokenOwners; // wrapped Token Id and NFT ticket owner
 
     constructor(
-        address _address,
         string memory _name,
         string memory _symbol
-    ) LotteryToken(_address, _name, _symbol) {}
+    ) LotteryToken(_name, _symbol) {}
 
     function mintToken(
         address _owner,

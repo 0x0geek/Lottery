@@ -9,9 +9,9 @@ import "@openzeppelin-upgrade/contracts/utils/math/SafeMathUpgradeable.sol";
 import "@openzeppelin-upgrade/contracts/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin-upgrade/contracts/utils/cryptography/MerkleProofUpgradeable.sol";
 
-import "./LotteryToken.sol";
-import "./WrappedLotteryToken.sol";
-import "./VRFConsumer.sol";
+import "./interfaces/ILotteryToken.sol";
+import "./interfaces/IWrappedLotteryToken.sol";
+import "./interfaces/IVRFConsumer.sol";
 
 contract LotteryV1 is
     Initializable,
@@ -56,9 +56,9 @@ contract LotteryV1 is
     uint256 public lotteryUpdatedTime; // start timestamp for the current lottery
     uint256 public averageWeight;
 
-    LotteryToken private token; // NFT token for owner
-    WrappedLotteryToken private wrappedToken; // Wrapped token for borrower
-    VRFConsumer private vrfConsumer;
+    ILotteryToken private token; // NFT token for owner
+    IWrappedLotteryToken private wrappedToken; // Wrapped token for borrower
+    IVRFConsumer private vrfConsumer;
 
     uint256 internal totalDepositAmount; // Total deposit amount in the current lottery
     uint256 internal accumulatedProtocolReward; // Protocol fee Reward
@@ -145,7 +145,10 @@ contract LotteryV1 is
         uint8 _rentTokenFee,
         uint32 _numberOfWinners,
         uint256 _rentAmount,
-        address _devAddress
+        address _devAddress,
+        address _lotteryTokenAddress,
+        address _wrappedTokenAddress,
+        address _consumerAddress
     ) external initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
@@ -157,14 +160,10 @@ contract LotteryV1 is
         devAddress = _devAddress;
         lotteryState = LOTTERY_STATE.ENDED;
 
-        token = new LotteryToken(address(this), "NFT Token", "NFT_TOKEN");
-        wrappedToken = new WrappedLotteryToken(
-            address(this),
-            "Wrapped NFT Token",
-            "WRAPPED_NFT_TOKEN"
-        );
-
-        vrfConsumer = new VRFConsumer(SUBSCRIPTION_ID, address(this));
+        token = ILotteryToken(_lotteryTokenAddress);
+        wrappedToken = IWrappedLotteryToken(_wrappedTokenAddress);
+        vrfConsumer = IVRFConsumer(_consumerAddress);
+        // vrfConsumer.setLotteryAddress(address(this));
     }
 
     /**
