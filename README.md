@@ -15,7 +15,7 @@ This smart contract is designed to implement a lottery system where users can pa
 
 1. Install Repository.
 ```shell
-git clone https://github.com/peterch0829/Lottery.git
+git clone https://github.com/0x00dev/Lottery.git
 ```
 
 2. Install dependencies.
